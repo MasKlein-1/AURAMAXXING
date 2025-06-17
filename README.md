@@ -4,8 +4,9 @@ This repository provides tools to grow and saturate mixed Si/Al (at the moment) 
 
 Main Contributors:
 
-- [Mas Klein](https://github.com/MasKlein-1)
 - [Alexander Kolganov](https://github.com/aakolganov)
+- [Mas Klein](https://github.com/MasKlein-1)
+
 
 Installation & Dependencies
 
