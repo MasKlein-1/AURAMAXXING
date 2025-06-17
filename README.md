@@ -23,7 +23,8 @@ pip install numpy
 ```bash
 pip install tqdm
 ```
-5. LAMMPS(Ensure a command‐line executable lmp, has to be compiled with KSPACE. LAMMPS is available at https://lammps.org. 
+5. LAMMPS. Ensure a command‐line executable lmp, has to be compiled with KSPACE. LAMMPS is available at https://lammps.org.
+
 6. PyTorch
 ```bash
 pip install torch
