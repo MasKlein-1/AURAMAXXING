@@ -7,7 +7,7 @@ from helpers.fourier_functions import *
 from ase.geometry import get_distances
 from default_constants import d_min_max, sample_dist, default_max_cn, pair_cutoffs
 from ase.constraints import FixAtoms
-
+from default_constants import OXIDATION_POS, OXIDATION_NEG
 
 class AmorphousStrucASE:
     """
@@ -72,7 +72,6 @@ class AmorphousStrucASE:
             # apply pbc if specified
             if pbc is not None:
                 self.atoms.set_pbc(pbc)
-
 
         self.max_cn = default_max_cn.copy()
         self.cut_offs=pair_cutoffs  .copy()
@@ -145,15 +144,15 @@ class AmorphousStrucASE:
             self.limits = [x_vals, y_vals, lower_limit, upper_limit]
 
         else: # if initial structure is provided and we to grow on top of it
-            #1) calculate the limits for the base structure
+            # 1) calculate the limits for the base structure
             z_max = float(self.atoms.positions[:, 2].max())
 
-            #2) Bottot XY plane for the new structure = XY = z_max + 1.5 A
+            # 2) Bottot XY plane for the new structure = XY = z_max + 1.5 A
             extra_shift = 1.5
             baseline = z_max + extra_shift
             lower_limit = np.full((n_points, n_points), baseline)
 
-            #3) Top limit = baseline + Fourier series
+            # 3) Top limit = baseline + Fourier series
             shift = 0.0
             pos = init_upper_limit.copy()
             pos[pos < 0] = 0.0
@@ -167,10 +166,6 @@ class AmorphousStrucASE:
                 upper_relative = neg
             upper_limit_on_base = baseline + upper_relative
             self.limits = [x_vals, y_vals, lower_limit, upper_limit_on_base]
-
-
-
-
 
     def copy(self) -> 'AmorphousStrucASE':
         """Deep-copy the structure."""
@@ -193,7 +188,6 @@ class AmorphousStrucASE:
             frac = frac - np.rint(frac)
             dr = cell.dot(frac)
         return np.linalg.norm(dr)
-
 
     def _build_neighbour_list(self) -> None:
         """
@@ -218,7 +212,7 @@ class AmorphousStrucASE:
         self.atoms = atoms
 
         if self._has_frozen and self.frozen_indices:
-            #re-invoke frozen indices
+            # re-invoke frozen indices
             new_valid = []
             N = len(self.atoms)
             for i in self.frozen_indices:
@@ -243,7 +237,6 @@ class AmorphousStrucASE:
         if len (nbrs) ==0:
             return 0
         return len(nbrs)
-
 
     def set_i(self, atom_symbol: str, weight_z: bool = False, al_penalty: float=0.000005) -> int:
 
@@ -276,8 +269,12 @@ class AmorphousStrucASE:
         all_cn = np.array([self.get_cn(i) for i in range(len(symbols))])
 
         # 2) mask: right symbol and not saturated
-        mask = (symbols == atom_symbol) & (all_cn < self.max_cn[atom_symbol])
-        cand = np.nonzero(mask)[0]
+        atoms_to_mask = OXIDATION_POS.keys() if atom_symbol in OXIDATION_POS else OXIDATION_NEG.keys()
+        mask = np.zeros(len(self.atoms))
+        for atom in atoms_to_mask:
+            mask_temp = (symbols == atom) & (all_cn < self.max_cn[atom])
+            mask += mask_temp
+        cand = np.where(mask == 0)[0]
 
         # 3) if none left, pick uniformly at random
         if cand.size == 0:
@@ -291,10 +288,10 @@ class AmorphousStrucASE:
         probs = weights/weights.sum()
         pick_cn = self.rng.choice(unique_cns, p=probs)
 
-        #subset of indexes to attach
+        # subset of indexes to attach
         sub = cand[cand_cns == pick_cn]
 
-        #base weights = 1
+        # base weights = 1
         w = np.ones(len(sub), dtype=float)
 
         # 5)  if we want to weight also by z-coordinate:
@@ -307,7 +304,7 @@ class AmorphousStrucASE:
         if atom_symbol == "Al":
             al_indices = [i for i, s in enumerate(symbols) if s == "Al"]
             for i_sub, idx in enumerate (sub):
-                #checking if there is Al within 3 angs distance
+                # checking if there is Al within 3 angs distance
                 pos_idx = self.atoms.get_positions()[idx]
                 found_close_al = False
                 for j in al_indices:
@@ -365,13 +362,13 @@ class AmorphousStrucASE:
             New Cartesian coordinates, or None if no valid placement found.
         """
 
-        #grid parameters
+        # grid parameters
         pos = self.atoms.get_positions()
         symbols = self.atoms.get_chemical_symbols()
         anchor = pos[idx_anchor]
         dist = sample_dist[symbols[idx_anchor]][atom_type]
 
-        #if no vertical limits, one shot random placement
+        # if no vertical limits, one shot random placement
         if limits is None:
             v = self.rng.standard_normal(3)
             v /= np.linalg.norm(v)
@@ -421,7 +418,7 @@ class AmorphousStrucASE:
         """
         Vectorized validity check to check distances if we can place atom based on the distances
         """
-        #0 ) Check if even we need something to check:
+        # 0 ) Check if even we need something to check:
         if len(idx_chunk) == 0:
             return False
 
@@ -459,7 +456,7 @@ class AmorphousStrucASE:
         # 4) Assesing the distances and if we are not connecting the same atom kinds
         too_close = dist < dmin
         mid_bad = (dist < dmax ) & (dist > dmin) & same
-        #too_far = dist > dmax # ATM, we're considering that if the atoms are too far - this is fine
+        # too_far = dist > dmax # ATM, we're considering that if the atoms are too far - this is fine
 
         # 5) If one of these conditions does not work - reject the placement
         if np.any(too_close | mid_bad):
@@ -500,7 +497,7 @@ class AmorphousStrucASE:
         if coords is None:
             return False
 
-        #3) slab-based overlap check
+        # 3) slab-based overlap check
         positions = self.atoms.get_positions()
         z_tol = 2.8 # we are checking atoms within 2.8 Angs, so 1-2 layers
         zdiff = np.abs(coords[2] - positions[:, 2])
@@ -508,10 +505,9 @@ class AmorphousStrucASE:
         if not self.check_placement(close_idxs, new_atom_type=atom_type, new_coords=coords):
             return False
 
-        #4) commit to ASE Atoms if OK
+        # 4) commit to ASE Atoms if OK
         self._commit_atom(atom_type, coords=coords)
         return True
-
 
     def slice(self, write_files: Optional = False, raise_by: float = 0) -> None:
         """
@@ -559,7 +555,7 @@ class AmorphousStrucASE:
         # Mask for atoms that stay
         keep = pos[:, 2] <= z_bound
         n_removed = np.count_nonzero(~keep)
-        #print(f"Sliced out {n_removed} atoms")
+        # print(f"Sliced out {n_removed} atoms")
 
         # Slicing atoms using mask
         self.atoms = self.atoms[keep]
