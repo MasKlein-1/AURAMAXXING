@@ -3,8 +3,8 @@ from ase import Atoms
 from pathlib import Path
 import os
 from helpers.files_io import add_dump_to_traj
-from interfaces.LAMMPS_Interface import LammpsInterface
 from interfaces.MACE_interface import MACEInterface
+from interfaces.LAMMPS_Interface import LMPInterface
 from ase.constraints import FixAtoms
 
 class BaseOptimizer(ABC):
@@ -21,29 +21,34 @@ class BaseOptimizer(ABC):
 class LammpsOptimizer(BaseOptimizer):
     """Wrapper for LAMMPS optimizer/annealer"""
     def __init__(self, struc):
-        self.optimizer = LammpsInterface(struc)
+        self.optimizer = LMPInterface()
         self.dump_path = Path("LAMMPS") / "dump.xyz"
 
     def optimize(self, atoms: Atoms, opt_type: str, **kwargs) -> Atoms:
-        frozen_indices = kwargs.get('frozen_indices', [])
-        constraint = FixAtoms(indices=frozen_indices) #prefixing the atoms
-        self.optimizer.atoms = atoms
-        self.optimizer.atoms.set_constraint(constraint)
         if opt_type == "anneal":
-            return self.optimizer.opt_struc(
-                "anneal",
-                steps=kwargs['steps'],
+            return self.optimizer.set_task(
+                atoms=atoms,
+                type_opt="anneal",
+                n_steps_heating=kwargs.get('n_steps_heating', 1000),
+                n_steps_cooling=kwargs.get('n_steps_cooling', 1000),
                 start_T=kwargs['start_T'],
-                final_T=kwargs['final_T'],
-                FF="BKS"
+                final_T=kwargs['final_T']
             )
         elif opt_type == "final":
-            return self.optimizer.opt_struc(
+            return self.optimizer.set_task(
                 "final",
-                steps=kwargs['steps'],
-                start_T=kwargs['start_T'],
-                final_T=kwargs['final_T'],
-                FF="BKS"
+                steps=kwargs["steps"],
+                start_T=kwargs["start_T"],
+                final_T=kwargs["final_T"],
+                FF="BKS",
+            )
+        elif opt_type == "minimize":
+            return self.optimizer.set_task(
+                "minimize",
+                steps=kwargs["steps"],
+                start_T=kwargs["start_T"],
+                final_T=kwargs["final_T"],
+                FF="BKS",
             )
 
 

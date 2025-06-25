@@ -266,13 +266,18 @@ class AmorphousStrucASE:
 
         # 1) get the vectors of all symbols and coordinates
         symbols = np.array(self.atoms.get_chemical_symbols())
+        unique_symbols = set(symbols)
         all_cn = np.array([self.get_cn(i) for i in range(len(symbols))])
 
         # 2) mask: right symbol and not saturated
         atoms_to_mask = OXIDATION_POS.keys() if atom_symbol in OXIDATION_POS else OXIDATION_NEG.keys()
+
         mask = np.zeros(len(self.atoms))
-        for atom in atoms_to_mask:
-            mask_temp = (symbols == atom) & (all_cn < self.max_cn[atom])
+        for atom in unique_symbols:
+            if atom in atoms_to_mask:
+                mask_temp = (symbols == atom)
+            else:
+                mask_temp = (symbols == atom) & (all_cn >= self.max_cn[atom])
             mask += mask_temp
         cand = np.where(mask == 0)[0]
 
@@ -325,8 +330,8 @@ class AmorphousStrucASE:
             w = np.ones_like(w)
             total = w.sum()
         w /= total
-
-        return int(self.rng.choice(sub, p=w))
+        output = int(self.rng.choice(sub, p=w))
+        return output
 
     def choose_vector(self,
                       atom_type: str,

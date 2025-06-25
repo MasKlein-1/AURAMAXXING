@@ -23,7 +23,10 @@ pip install numpy
 ```bash
 pip install tqdm
 ```
-5. LAMMPS. Ensure a command‐line executable lmp, has to be compiled with KSPACE. LAMMPS is available at https://lammps.org.
+5. LAMMPS (https://lammps.org). Use either the pip install below or install the lammps python library from source at https://github.com/lammps/lammps
+```bash
+pip install lammps
+```
 
 6. PyTorch
 ```bash
@@ -32,6 +35,5 @@ pip install torch
 7. MACE (https://github.com/ACEsuit/mace)
 ```bash
 pip install mace-torch
-```
 
 The representative examples script to grow and saturate a Si/Al oxide structure is provided in the folder "examples".
