@@ -4,9 +4,8 @@ from scipy.stats import burr12, uniform
 
 
 # oxidation states
-OXIDATION_POS = {"Si": +4, "Al": +3}
+OXIDATION_POS = {"Si": +4, "Al": +3, "H": +1}
 OXIDATION_NEG = {"O": -2}
-
 
 
 # object to randomly select the distances
@@ -31,21 +30,15 @@ sample_dist: Dict[str, RandomSample[str, Callable]] = {
 
 # range of distances for seeded growth
 d_min_max: Dict[str, Dict[str, List]] = {
-    "Si": {"Si": [2.6, 3.0],
-           "O": [1.5850717394267364, 1.92],
-           "Al": [2.6, 3.0]},
-
-    "O": {"Si": [1.5850717394267364, 1.92],
-          "O": [2.05, 2.4],
-          "Al": [1.65, 2.1]},
-    "Al": {"Si": [2.6, 3.0],
-           "O": [1.8, 2.2],
-           "Al": [2.6, 3.0]},
+    "Si": {"Si": [2.6, 3.0], "O": [1.585, 1.92], "Al": [2.6, 3.0]},
+    "O": {"Si": [1.585, 1.92], "O": [2.05, 2.4], "Al": [1.7, 2.2]},
+    "Al": {"Si": [2.6, 3.0], "O": [1.7, 2.2], "Al": [2.6, 3.0]},
 }
 
 
-#maximum allowed coordination number for each atom type
+# maximum allowed coordination number for each atom type
 default_max_cn = {"Si": 4, "O": 2, "Al": 4, "H": 1}  # we consider Al as tetragonal
+default_allowed_cn = {"Si": 4, "O": 2, "Al": 3, "H": 1}  # we consider Al as tetragonal
 
 
 default_max_cut_offs = {
@@ -100,7 +93,7 @@ bks_charges = {
 
 NORM_COORDINATION = {"Si": 4,"Al":4, "O": 2, "H": 1}
 
-#bond lenghst for satuarion routine
+# bond lenghst for satuarion routine
 O_H_BONDLENGTH = 1.0
 El_O_BONDLENGTH = 1.65 #bond lenght for Si/Al - O bond
 
