@@ -264,7 +264,11 @@ class AmorphousStrucASE:
         """
 
         # 0) ensure neighbor list up-to-date
-        self._build_neighbour_list()
+        # if not self.nl_up_to_date:
+        #     self._build_neighbour_list()
+        #     self.nl_up_to_date = True
+        # This portion should be unnecessary. Everytime the structure is updated the method `update [something]` is called
+        # Thus gaurenteeing that the neighbor list is up to date. Same method is called when using method _commit_atom.
 
         # 1) get the vectors of all symbols and coordinates
         symbols = np.array(self.atoms.get_chemical_symbols())
