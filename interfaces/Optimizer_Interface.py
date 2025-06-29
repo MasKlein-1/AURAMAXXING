@@ -26,13 +26,17 @@ class LammpsOptimizer(BaseOptimizer):
 
     def optimize(self, atoms: Atoms, opt_type: str, **kwargs) -> Atoms:
         if opt_type == "anneal":
+            frozen_atoms = (
+                kwargs["frozen_indices"] if "frozen_indices" in kwargs else []
+            )
             return self.optimizer.set_task(
                 atoms=atoms,
                 type_opt="anneal",
-                n_steps_heating=kwargs.get('n_steps_heating', 1000),
-                n_steps_cooling=kwargs.get('n_steps_cooling', 1000),
-                start_T=kwargs['start_T'],
-                final_T=kwargs['final_T']
+                n_steps_heating=kwargs.get("n_steps_heating", 1000),
+                n_steps_cooling=kwargs.get("n_steps_cooling", 1000),
+                start_T=kwargs["start_T"],
+                final_T=kwargs["final_T"],
+                frozen_atoms=frozen_atoms,
             )
         elif opt_type == "final":
             return self.optimizer.set_task(
@@ -43,31 +47,48 @@ class LammpsOptimizer(BaseOptimizer):
                 FF="BKS",
             )
         elif opt_type == "minimize":
-            return self.optimizer.set_task(
-                "minimize",
-                steps=kwargs["steps"],
-                start_T=kwargs["start_T"],
-                final_T=kwargs["final_T"],
-                FF="BKS",
+            max_steps = kwargs["max_steps"] if "max_steps" in kwargs else 500
+            frozen_atoms = (
+                kwargs["frozen_indices"] if "frozen_indices" in kwargs.keys() else None
             )
+            minimized = self.optimizer.set_task(
+                type_opt="minimize",
+                atoms=atoms,
+                max_steps=max_steps,
+                frozen_atoms=frozen_atoms,
+            )
+            return minimized
 
 
 class MACEOptimizer(BaseOptimizer):
     "Wrapper for MACE optimizer/annealer"
-    def __init__(self, model_path: str):
-        self.optimizer = MACEInterface(model_path, device="mps")
+    def __init__(self, model_path: str, device="mps"):
+        self.optimizer = MACEInterface(model_path, device=device)
         self.dump_path = Path("dump.xyz")
 
     def optimize(self, atoms: Atoms, opt_type: str, **kwargs) -> Atoms:
         if opt_type == "anneal":
+            frozen_atoms = (
+                kwargs["frozen_indices"] if "frozen_indices" in kwargs.keys() else None
+            )
             return self.optimizer.set_task(
                 atoms=atoms,
                 type_opt="anneal",
-                n_steps_heating=kwargs.get('n_steps_heating', 1000),
-                n_steps_cooling=kwargs.get('n_steps_cooling', 1000),
-                start_T=kwargs['start_T'],
-                final_T=kwargs['final_T']
+                n_steps_heating=kwargs.get("n_steps_heating", 1000),
+                n_steps_cooling=kwargs.get("n_steps_cooling", 1000),
+                start_T=kwargs["start_T"],
+                final_T=kwargs["final_T"],
+                frozen_atoms=frozen_atoms,
             )
         elif opt_type == "minimize":
-            _, minimized = self.optimizer.optimize(atoms, max_steps=500)
+            max_steps = kwargs["max_steps"] if "max_steps" in kwargs.keys() else 500
+            frozen_atoms = (
+                kwargs["frozen_indices"] if "frozen_indices" in kwargs.keys() else None
+            )
+            minimized = self.optimizer.set_task(
+                type_opt="minimize",
+                atoms=atoms,
+                max_steps=max_steps,
+                frozen_atoms=frozen_atoms,
+            )
             return minimized

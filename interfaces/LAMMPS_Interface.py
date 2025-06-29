@@ -5,6 +5,7 @@ from typing import Union
 from ase.optimize import LBFGS, FIRE
 from ase.calculators.lammpslib import LAMMPSlib
 from ase import Atoms
+from ase.constraints import FixAtoms
 
 from ase.io import read, write
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
@@ -47,7 +48,7 @@ class TemperatureController:
         """Apply Berendsen-like temperature coupling"""
         if len(self.atoms) == 0:
             return
-
+        
         # Calculate current temperature
         ekin = self.atoms.get_kinetic_energy()
         current_temp = 2 * ekin / (3 * kB * len(self.atoms))
@@ -134,7 +135,7 @@ class LMPInterface:
         )
         return lmp_calc
 
-    def optimize(self, atoms: Atoms, max_steps: int = 450) -> float:
+    def optimize(self, atoms: Atoms, max_steps: int = 450, frozen_atoms: Optional[list[int]]=None) -> float:
         """
         Optimization of the structure using MACE.
 
@@ -156,9 +157,11 @@ class LMPInterface:
 
         # 1) Appointing MACE calculator:
         atoms.calc = calc
+        if frozen_atoms is not None:
+            atoms.set_constraint(FixAtoms(indices=frozen_atoms))
 
         # 2) Running L-BFGS optimizer:
-        opt = LBFGS(atoms)  # logfile=None,
+        opt = LBFGS(atoms, logfile=None)  # logfile=None,
         opt.run(fmax=0.1, steps=max_steps)  # correct fmax if needed
 
         # 3) getting the energy of the optimized structure:
@@ -178,6 +181,7 @@ class LMPInterface:
         final_T: float,
         timestep_fs: float = 1.25,
         traj_file: Optional[str] = None,
+        frozen_atoms: Optional[list[int]] = None
     ):
         """
         Annealing of the structure using MACE.
@@ -217,7 +221,7 @@ class LMPInterface:
                     append=True,
                     comment=f"Step_heating: {step}",
                 )
-
+            
         # 3) Cooling phase:
         for step in range(n_steps_cooling):
             # Calculate target temperature for this step
@@ -226,7 +230,7 @@ class LMPInterface:
             )
             temp_controller.set_temperature(target_temp)
 
-            md.run(1)
+            md.run(n_steps_cooling)
             if step % 1 == 0 and step != 0:
                 atoms.wrap()
                 atoms.write(
@@ -236,7 +240,7 @@ class LMPInterface:
                     comment=f"Step_cooling: {step}",
                 )
             temp_controller.apply()
-
+            
         return atoms
 
     def set_task(
@@ -247,9 +251,12 @@ class LMPInterface:
         final_T: Optional[float] = None,
         n_steps_heating: Optional[int] = None,
         n_steps_cooling: Optional[int] = None,
+        max_steps: Optional[int] = None,
+        frozen_atoms: Optional[list[int]] = None,
     ) -> Atoms:  # Now consistently returns Atoms only
         if type_opt == "minimize":
-            _, atoms = self.optimize(atoms, 250)
+            assert max_steps is not None, "Need to specify max_steps if using type_opt=minimize"
+            _, atoms = self.optimize(atoms, max_steps, frozen_atoms=frozen_atoms)
             return atoms  # Return just atoms
 
         elif type_opt == "anneal":
@@ -265,6 +272,7 @@ class LMPInterface:
                 n_steps_cooling=n_steps_cooling,
                 start_T=start_T,
                 final_T=final_T,
+                frozen_atoms=frozen_atoms,
             )
             return atoms  # Return just atoms
 

@@ -6,7 +6,7 @@ from typing import Union
 from ase.optimize import LBFGS, FIRE
 from ase import Atoms
 import torch
-#import torch_dftd
+# import torch_dftd
 from ase.io import read, write
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from ase.md.verlet import VelocityVerlet
@@ -119,11 +119,11 @@ class MACEInterface:
             optimized geometry
         """
         # 1) Appointing MACE calculator:
-        atoms.set_calculator(self.calculator)
+        atoms.calc = self.calculator
 
         # 2) Running L-BFGS optimizer:
         opt = LBFGS(atoms)  # logfile=None,
-        opt.run(fmax=0.1, steps=max_steps)  # correct fmax if needed
+        opt.run(fmax=0.2, steps=max_steps)  # correct fmax if needed
 
         # 3) getting the energy of the optimized structure:
         try:
@@ -145,16 +145,14 @@ class MACEInterface:
         Annealing of the structure using MACE.
         """
 
-        #0) Clear any existing dump file
+        # 0) Clear any existing dump file
         if os.path.exists("dump.xyz"):
             os.remove("dump.xyz")
-
 
         # 1) Appointing MACE calculator:
         atoms.set_calculator(self.calculator)
 
-
-        #2) Heating phase: High temperature equilibration
+        # 2) Heating phase: High temperature equilibration
         MaxwellBoltzmannDistribution(atoms, temperature_K=start_T)
 
         # Remove center of mass motion
@@ -170,8 +168,8 @@ class MACEInterface:
             md.run(1)
             temp_controller.apply()
 
-            #write dump file
-            if step % 1  == 0 and step != 0:
+            # write dump file
+            if step % 10  == 0 and step != 0:
                 atoms.wrap()
                 atoms.write( "dump.xyz", format="xyz", append=True, comment=f"Step_heating: {step}")
 
@@ -195,10 +193,14 @@ class MACEInterface:
                  start_T: Optional[float] = None,
                  final_T: Optional[float] = None,
                  n_steps_heating: Optional[int] = None,
-                 n_steps_cooling: Optional[int] = None
+                 n_steps_cooling: Optional[int] = None,
+                 max_steps: Optional[int] = None,
+                 frozen_atoms: Optional[list[int]]=None
                  ) -> Atoms:  # Now consistently returns Atoms only
+        
         if type_opt == "minimize":
-            _, atoms = self.optimize(atoms, 250)
+            assert max_steps is not None, "must specify max_steps is using type_opt=minimize"
+            _, atoms = self.optimize(atoms, max_steps)
             return atoms  # Return just atoms
 
         elif type_opt == "anneal":
@@ -213,7 +215,8 @@ class MACEInterface:
                 n_steps_heating=n_steps_heating,
                 n_steps_cooling=n_steps_cooling,
                 start_T=start_T,
-                final_T=final_T
+                final_T=final_T,
+                
             )
             return atoms  # Return just atoms
 
