@@ -84,7 +84,7 @@ class AmorphousStrucASE:
         self.frozen_indices = []
         self._has_frozen = False
 
-    def set_limits(self, alpha: float, n_m: int, const_V: Optional=False, H: Optional=0) -> None:
+    def set_limits(self, alpha: float, n_m: int, const_V: Optional=False, H: Optional=0, z_height:Optional[float]=50) -> None:
         """
         Sets the upper and lower limits of between the structure is allowed to grow.
         Current behavious is to make a stochastic fourier series specified through alpha and n_m for upper limit
@@ -95,7 +95,7 @@ class AmorphousStrucASE:
           n_m - the number of Fouier made to use when making the function
           const_V - whether to use constant volume functionality or not.
           H - base height for const_V functionality.
-
+          z_height - the height of the defined unit cell
         --- effect ---
           sets the class variable "limits" with a list containing, in this order:
             1D array of x-values used to made the function
@@ -125,7 +125,9 @@ class AmorphousStrucASE:
                     H=H
                 )
 
-            shift = 1.5 # helper value to divide the Fourier function by positive and negative part
+            shift = ( # We do not want the limits to be low, if that is the case then there are some quirks with periodicity
+                3 + 0.3 * z_height
+            )  # helper value to divide the Fourier function by positive and negative part
             positive_portion = init_upper_limit.copy() + shift
             positive_portion[positive_portion < 0] = 0
             negative_portion = init_upper_limit.copy() - shift
@@ -140,7 +142,7 @@ class AmorphousStrucASE:
             else:
                 upper_limit = negative_portion
 
-            lower_limit = np.full((500, 500), 0.0)
+            lower_limit = np.full((500, 500), 0.3 * z_height)
             self.limits = [x_vals, y_vals, lower_limit, upper_limit]
 
         else: # if initial structure is provided and we to grow on top of it
@@ -404,8 +406,8 @@ class AmorphousStrucASE:
             if not (0 <= ix < self._nx and 0 <= iy < self._ny):
                 continue #if we didn't hit the grid - try again
 
-            lo = z_min - down[ix, iy]
-            hi = z_min + up[ix, iy]
+            lo = down[ix, iy]
+            hi = up[ix, iy]
 
             if lo <= new[2] <= hi:
                 # if PBC is active - then wrap it into the cell
@@ -493,7 +495,7 @@ class AmorphousStrucASE:
         # 1) center‐of‐cell placement when no anchor
         if idx_anchor is None:
             # fractional → Cartesian
-            new_coords =  [0.5, 0.5, 0.05] @ self.atoms.get_cell()
+            new_coords =  [0.5, 0.5, 0.325] @ self.atoms.get_cell()
             self._commit_atom(atom_type, coords=new_coords)
             return True
 
@@ -543,7 +545,7 @@ class AmorphousStrucASE:
 
         self.atoms.wrap()
         pos = self.atoms.get_positions()  # (N,3) array
-        z_min = pos[:, 2].min() # find the "bottom" of the surface
+        low = self.limits[2]
         up = self.limits[3] # upper limit grid
         # For valid atoms computing z-limits
         z_offset = 1.0
@@ -553,12 +555,15 @@ class AmorphousStrucASE:
         iy = np.floor((pos[:, 1] - self._y0) / self._dy).astype(int)
         valid = (ix >= 0) & (ix < self._nx) & (iy >= 0) & (iy < self._ny) #check which atoms we need to cut off
 
-        z_bound = np.full(pos.shape[0], np.inf)
+        z_bound_up = np.full(pos.shape[0], np.inf)
         inds = np.where(valid)[0]
-        z_bound[inds] = z_min + up[ix[inds], iy[inds]] + z_offset
+        z_bound_up[inds] = up[ix[inds], iy[inds]] + z_offset
 
+        z_bound_low = np.full(pos.shape[0], np.inf)
+        inds = np.where(valid)[0]
+        z_bound_low[inds] = low[ix[inds], iy[inds]]
         # Mask for atoms that stay
-        keep = pos[:, 2] <= z_bound
+        keep = (pos[:, 2] <= z_bound_up) & (pos[:, 2] >= z_bound_low)
         n_removed = np.count_nonzero(~keep)
         # print(f"Sliced out {n_removed} atoms")
 
